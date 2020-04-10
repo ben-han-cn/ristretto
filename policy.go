@@ -20,7 +20,7 @@ import (
 	"math"
 	"sync"
 
-	"github.com/dgraph-io/ristretto/z"
+	"github.com/ben-han-cn/ristretto/z"
 )
 
 const (
