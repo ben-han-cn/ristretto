@@ -171,6 +171,10 @@ func (c *Cache) Get(key interface{}) (interface{}, bool) {
 		return nil, false
 	}
 	keyHash, conflictHash := c.keyToHash(key)
+	return c.GetWithHash(keyHash, conflictHash)
+}
+
+func (c *Cache) GetWithHash(keyHash, conflictHash uint64) (interface{}, bool) {
 	c.getBuf.Push(keyHash)
 	value, ok := c.store.Get(keyHash, conflictHash)
 	if ok {
@@ -179,6 +183,7 @@ func (c *Cache) Get(key interface{}) (interface{}, bool) {
 		c.Metrics.add(miss, keyHash, 1)
 	}
 	return value, ok
+
 }
 
 // Set attempts to add the key-value item to the cache. If it returns false,
@@ -190,7 +195,7 @@ func (c *Cache) Get(key interface{}) (interface{}, bool) {
 // To dynamically evaluate the items cost using the Config.Coster function, set
 // the cost parameter to 0 and Coster will be ran when needed in order to find
 // the items true cost.
-func (c *Cache) Set(key, value interface{}, cost int64) bool {
+func (c *Cache) Set(key, value interface{}, cost int64) (bool, uint64, uint64) {
 	return c.SetWithTTL(key, value, cost, 0*time.Second)
 }
 
@@ -198,9 +203,9 @@ func (c *Cache) Set(key, value interface{}, cost int64) bool {
 // after the specified TTL (time to live) has passed. A zero value means the value never
 // expires, which is identical to calling Set. A negative value is a no-op and the value
 // is discarded.
-func (c *Cache) SetWithTTL(key, value interface{}, cost int64, ttl time.Duration) bool {
+func (c *Cache) SetWithTTL(key, value interface{}, cost int64, ttl time.Duration) (bool, uint64, uint64) {
 	if c == nil || key == nil {
-		return false
+		return false, 0, 0
 	}
 
 	var expiration time.Time
@@ -210,7 +215,7 @@ func (c *Cache) SetWithTTL(key, value interface{}, cost int64, ttl time.Duration
 		break
 	case ttl < 0:
 		// Treat this a a no-op.
-		return false
+		return false, 0, 0
 	default:
 		expiration = time.Now().Add(ttl)
 	}
@@ -232,10 +237,10 @@ func (c *Cache) SetWithTTL(key, value interface{}, cost int64, ttl time.Duration
 	// Attempt to send item to policy.
 	select {
 	case c.setBuf <- i:
-		return true
+		return true, keyHash, conflictHash
 	default:
 		c.Metrics.add(dropSets, keyHash, 1)
-		return false
+		return false, 0, 0
 	}
 }
 

@@ -25,7 +25,7 @@ func TestCacheKeyToHash(t *testing.T) {
 		},
 	})
 	require.NoError(t, err)
-	if c.Set(1, 1, 1) {
+	if succeed, _, _ := c.Set(1, 1, 1); succeed {
 		time.Sleep(wait)
 		val, ok := c.Get(1)
 		require.True(t, ok)
@@ -121,7 +121,8 @@ func TestNilCache(t *testing.T) {
 	require.False(t, ok)
 	require.Nil(t, val)
 
-	require.False(t, c.Set(1, 1, 1))
+	succeed, _, _ := c.Set(1, 1, 1)
+	require.False(t, succeed)
 	c.Del(1)
 	c.Clear()
 	c.Close()
@@ -280,7 +281,7 @@ func TestCacheGet(t *testing.T) {
 // retrySet calls SetWithTTL until the item is accepted by the cache.
 func retrySet(t *testing.T, c *Cache, key, value int, cost int64, ttl time.Duration) {
 	for {
-		if set := c.SetWithTTL(key, value, cost, ttl); !set {
+		if set, _, _ := c.SetWithTTL(key, value, cost, ttl); !set {
 			time.Sleep(wait)
 			continue
 		}
@@ -321,13 +322,15 @@ func TestCacheSet(t *testing.T) {
 			cost:     1,
 		}
 	}
-	require.False(t, c.Set(2, 2, 1))
+	succeed, _, _ := c.Set(2, 2, 1)
+	require.False(t, succeed)
 	require.Equal(t, uint64(1), c.Metrics.SetsDropped())
 	close(c.setBuf)
 	close(c.stop)
 
 	c = nil
-	require.False(t, c.Set(1, 1, 1))
+	succeed, _, _ = c.Set(1, 2, 1)
+	require.False(t, succeed)
 }
 
 func TestRecacheWithTTL(t *testing.T) {
@@ -341,7 +344,7 @@ func TestRecacheWithTTL(t *testing.T) {
 	require.NoError(t, err)
 
 	// Set initial value for key = 1
-	insert := c.SetWithTTL(1, 1, 1, 5*time.Second)
+	insert, _, _ := c.SetWithTTL(1, 1, 1, 5*time.Second)
 	require.True(t, insert)
 	time.Sleep(2 * time.Second)
 
@@ -360,7 +363,7 @@ func TestRecacheWithTTL(t *testing.T) {
 	require.Nil(t, val)
 
 	// Set new value for key = 1
-	insert = c.SetWithTTL(1, 2, 1, 5*time.Second)
+	insert, _, _ = c.SetWithTTL(1, 2, 1, 5*time.Second)
 	require.True(t, insert)
 	time.Sleep(2 * time.Second)
 
